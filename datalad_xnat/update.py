@@ -70,13 +70,18 @@ class Update(Interface):
             args=("-f", "--force",),
             doc="""force (re-)building the addurl tables""",
             action='store_true'),
+        interactive=Parameter(
+            args=("-i", "--interactive",),
+            doc="""Get an interactive prompt to select subjects to download""",
+            action='store_true'),
         **_XNAT.cmd_params
     )
 
     @staticmethod
     @datasetmethod(name='xnat_update')
     @eval_results
-    def __call__(subjects='list', credential=None, dataset=None, ifexists=None, force=False):
+    def __call__(subjects='list', credential=None, dataset=None, ifexists=None,
+                 force=False, interactive=False):
 
         ds = require_dataset(
             dataset, check_installed=True, purpose='update')
@@ -113,17 +118,34 @@ class Update(Interface):
 
         # provide subject list
         if 'list' in subjects:
-            from datalad.ui import ui
-            subs = platform.get_subjects(xnat_project)
-            ui.message(
-                'The following subjects are available for XNAT '
-                'project {}:'.format(xnat_project))
-            for s in sorted(subs):
-                ui.message(" {}".format(quote_cmdlinearg(s)))
-            ui.message(
-                'Specify a specific subject(s) or "all" to download associated '
-                'files for.')
-            return
+            choices = platform.get_subjects(xnat_project)
+            if interactive:
+                # provide an interactive prompt to choose from
+                import inquirer
+                from inquirer.themes import GreenPassion
+                choices[0] = 'all'
+                message = 'Select one or more subjects to download from ' \
+                          'Project "{}" via arrow keys. ' \
+                          'Confirm with "Enter"'.format(xnat_project)
+                checkbox = [inquirer.Checkbox('subject',
+                                              message=message,
+                                              choices=choices)]
+                resp = inquirer.prompt(checkbox, theme=GreenPassion())
+                lgr.info("Received the following subject list from an "
+                         "interactive prompt: %s", str(resp['subject']))
+                subjects = resp['subject']
+            else:
+                from datalad.ui import ui
+                ui.message(
+                    'The following subjects are available for XNAT '
+                    'project {}:'.format(xnat_project))
+                for p in sorted(choices):
+                    ui.message(" {}".format(quote_cmdlinearg(p)))
+                ui.message(
+                   'Specify a specific subject(s) or "all" to download associated '
+                   'files for from the command line, or use the --interactive '
+                   'flag to chose interactively')
+                return
 
         # query the specified subject(s) to make sure it exists and is accessible
         # TODO we culd just take the input subject list at face-value
