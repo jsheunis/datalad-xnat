@@ -66,6 +66,12 @@ class Update(Interface):
             doc="""Flag for addurls""",
             constraints=EnsureChoice(None, "overwrite", "skip")
         ),
+        fast=Parameter(
+            args=("--fast",),
+            doc="""Flag for addurls. If True, add the URLs for files, but don’t
+            download their content.""",
+            action='store_true'
+        ),
         force=Parameter(
             args=("-f", "--force",),
             doc="""force (re-)building the addurl tables""",
@@ -76,7 +82,7 @@ class Update(Interface):
     @staticmethod
     @datasetmethod(name='xnat_update')
     @eval_results
-    def __call__(subjects='list', credential=None, dataset=None, ifexists=None, force=False):
+    def __call__(subjects='list', credential=None, dataset=None, ifexists=None, fast=False, force=False):
 
         ds = require_dataset(
             dataset, check_installed=True, purpose='update')
@@ -166,6 +172,7 @@ class Update(Interface):
             ds.addurls(
                 str(table), '{url}', filenameformat,
                 ifexists=ifexists,
+                fast=fast,
                 save=False,
                 cfg_proc=None if platform.cred['anonymous']
                 else 'xnat_dataset',
